@@ -12,29 +12,34 @@ except ImportError:
 
 import settings as settings
 
-def download(url):
-    try:
-        webFile = urllib.urlopen(url)
-        filename = webFile.headers['Content-Disposition'].split('filename=')[-1].split('"')[1]
-        localFile = open(settings.download_dir + filename, 'w')
-        localFile.write(webFile.read())
-    except: 
-        try:
-            webFile.close()
-            localFile.close()
-        except: pass
-        return False
-    
-    webFile.close()
-    localFile.close()
-    return True
+class TorrentDownload():
+    def __init__(self, url):
+        self.url = url
+        self.remoteFile = urllib.urlopen(self.url)
+        self.fetchFilename()
+        self.createLocalFileHandler()
 
-def getFilename(url):
-    webFile = urllib.urlopen(url)
-    try:
-        filename = webFile.headers['Content-Disposition'].split('filename=')[-1].split('"')[1]
-    except: 
-        webFile.close()
-        return False
-    webFile.close()
-    return filename
+    def __del__(self):
+        self.remoteFile.close()
+        self.localFile.close()
+
+    def start(self):
+        try:
+            self.localFile.write(self.remoteFile.read())
+        except: 
+            return False
+        return True
+
+    def fetchFilename(self):
+        try:
+            self.filename = self.remoteFile.headers['Content-Disposition'].split('filename=')[-1].split('"')[1]
+        except: 
+            return False
+        return True
+
+    def createLocalFileHandler(self):
+        try:
+            self.localFile = open(settings.download_dir + self.filename, 'w')
+        except:
+            return False
+        return True
