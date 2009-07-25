@@ -25,142 +25,157 @@ except ImportError:
 import settings
 import sys
 
-def getValue(node, tag):
-    return node.getElementsByTagName(tag)[0].childNodes[0].nodeValue
+class XMLHandler():
+    def __init__(self):
+        self.doc = self.refreshXML()
+        self.getSeries()
+        
+    def refreshXML(self):
+        try:
+            return xml.dom.minidom.parse(settings.xml_file)
+        except: return False
 
-def setValue(node, tag, value):
-    node.getElementsByTagName(tag)[0].childNodes[0].nodeValue = value
-    return True
+    def getSearchString(self, title):
+        tmp = title.split(' ')
+        return '+'.join(tmp).lower()
 
-def toSearch(title):
-    to_search = title.split(' ')
-    return '+'.join(to_search).lower()
-
-## LOAD SERIES INFO INTO settings.shows
-def getSeries(*args):
-    try:
-        doc = xml.dom.minidom.parse(settings.xml_file)
-    except:
-        return False
-    
-    # "pretizeni funkce" - zjisteni jen jedne serie
-    if args:
-        title = toSearch(args[0])
-        for series in doc.getElementsByTagName("series"):
-            for serie in series.getElementsByTagName("serie"):
-                if getValue(serie, 'search') == title:
-                    show = {'title'       :getValue(serie, 'title'),
-                            'episode'     :getValue(serie, 'episode'),
-                            'season'      :getValue(serie, 'season'),
-                            'fetch_from'  :getValue(serie, 'fetch_from'),
-                            'search'      :getValue(serie, 'search')}
-                    return show
-        return False
-
-    # pokud neni zadan argument
-    settings.show = []
-    for series in doc.getElementsByTagName("series"):
-        for serie in series.getElementsByTagName("serie"):
-            show = {'title'       :getValue(serie, 'title'),
-                    'episode'     :getValue(serie, 'episode'),
-                    'season'      :getValue(serie, 'season'),
-                    'fetch_from'  :getValue(serie, 'fetch_from'),
-                    'search'      :getValue(serie, 'search')}
+    # if some argument begins with @, it will be saved into self.elements
+    def getElementsRecursive(self, flush, target, *args):
+        if flush == True:
+            self.elements = ()
+            flush = False
             
+        for element in target.getElementsByTagName(args[0]):
+            try:
+                var, args = args[0].split('@')
+                self.elements.append(element)
+            except:
+                pass
+            
+            try:
+                self.getElementsRecursive(cache, element, args[1:])
+            except:
+                return target.getElementsByTagName(arg)
+        print args        
+
+    def getNodeValue(self, node, tag):
+        return node.getElementsByTagName(tag)[0].childNodes[0].nodeValue
+
+    def setNodeValue(self, node, tag, value):
+        node.getElementsByTagName(tag)[0].childNodes[0].nodeValue = value
+        return True
+
+    # Pokud je zadan argument zjisti pouze jednu serii, jinak vsechny
+    def getSeries(self, *args):
+        self.doc = self.refreshXML()
+        
+        # "pretizeni funkce" - zjisteni jen jedne serie
+        if args:
+            title = self.getSearchString(args[0])
+            for serie in self.getElementsRecursive(True, self.doc, 'series', 'serie'):
+                if self.getNodeValue(serie, 'search') == title:
+                    show = {'title'       :self.getNodeValue(serie, 'title'),
+                            'episode'     :self.getNodeValue(serie, 'episode'),
+                            'season'      :self.getNodeValue(serie, 'season'),
+                            'fetch_from'  :self.getNodeValue(serie, 'fetch_from'),
+                            'search'      :self.getNodeValue(serie, 'search')}
+                    return show
+            return False
+    
+        # pokud neni zadan argument
+        settings.show = []
+        for serie in self.getElementsRecursive(True, self.doc, 'series', 'serie'):
+            show = {'title'       :self.getNodeValue(serie, 'title'),
+                    'episode'     :self.getNodeValue(serie, 'episode'),
+                    'season'      :self.getNodeValue(serie, 'season'),
+                    'fetch_from'  :self.getNodeValue(serie, 'fetch_from'),
+                    'search'      :self.getNodeValue(serie, 'search')}
+                
             settings.shows.append(show)
+        return True
 
-## LOAD TORRENTS INFO INTO settings.torrents
-## nejak lepe poresit ty fory to je otres
-def getTorrents():
-    try:
-        doc = xml.dom.minidom.parse(settings.xml_file)
-    except:
+    ## LOAD TORRENTS INFO INTO settings.torrents
+    def getTorrents(self):
+        self.doc = self.refreshXML()
+        
+        settings.torrents = []
+        for torrent in self.getElementsRecursive(True, self.doc, 'series', '@serie', 'torrents', 'torrent'):
+            torrent = {'url'        :self.getNodeValue(tmp, 'url'),
+                       'tracker'    :self.getNodeValue(tmp, 'tracker'),
+                       'filename'   :self.getNodeValue(tmp, 'filename'),
+                       'episode'    :self.getNodeValue(tmp, 'episode'),
+                       'season'     :self.getNodeValue(tmp, 'season'),
+                       'title'      :self.getNodeValue(self.elements[0], 'title')}
+
+            settings.torrents.append(torrent)
+            
+    def xmlExists(self):
+        try:
+            f = open(settings.xml_file,"r")
+        except:
+            return False
+    
+        f.close()
+        return True
+
+    def torrentExists(self, torrent):
+        self.getTorrents()
+        for _torrent in settings.torrents:
+            if torrent['url'] == _torrent['url']:
+                return True
+            else:
+                continue
         return False
 
-    settings.torrents = []
-    for series in doc.getElementsByTagName("series"):
-        for serie in series.getElementsByTagName("serie"):
-            for torrents in serie.getElementsByTagName("torrents"):
-                for tmp in torrents.getElementsByTagName("torrent"):
-                    torrent = {'url'        :getValue(tmp, 'url'),
-                               'tracker'    :getValue(tmp, 'tracker'),
-                               'filename'   :getValue(tmp, 'filename'),
-                               'episode'    :getValue(tmp, 'episode'),
-                               'season'     :getValue(tmp, 'season'),
-                               'title'      :getValue(serie, 'title')}
+    ### return array of nodes
+    def createChildArray(self, values):
+        out = []
+        for key in values:
+            value = values[key]
+            tmp = self.doc.createElement(key)
+            txt = self.doc.createTextNode(str(value))
+            tmp.appendChild(txt)
+    
+            out.append(tmp)
+        return out
 
-                    settings.torrents.append(torrent)
+    def appendChildArray(self, node, childnodes):
+        for childnode in childnodes:
+            node.appendChild(childnode)
+        return True
 
-def xmlExists():
-    try:
-        f = open(settings.xml_file,"r")
-    except:
-        return False
-
-    f.close()
-    return True
-
-def torrentExists(torrent):
-    getTorrents()
-    for _torrent in settings.torrents:
-        if torrent['url'] == _torrent['url']:
-            return True
-        else:
-            continue
-    return False
-
-### return array of nodes
-def createChildArray(values):
-    doc = xml.dom.minidom.parse(settings.xml_file)
-    out = []
-    for key in values:
-        value = values[key]
-        tmp = doc.createElement(key)
-        txt = doc.createTextNode(str(value))
-        tmp.appendChild(txt)
-
-        out.append(tmp)
-    return out
-
-def appendChildArray(node, childnodes):
-    doc = xml.dom.minidom.parse(settings.xml_file)
-    for childnode in childnodes:
-        node.appendChild(childnode)
-    return True
-
-def addTorrent(title, url, tracker, filename, episode, season):
-    try:
-        if(xmlExists() == False):
-            f = open(settings.xml_file,"w")
-            _xml = xml.dom.minidom.Document()
-
-            series = _xml.createElement("series")
-            _xml.appendChild(series)
-
-            _xml.writexml(f, "    ", "", "\n", "UTF-8")
-            f.close()
-
-        doc = xml.dom.minidom.parse(settings.xml_file)
-    except:
-        return False
-
-    for series in doc.getElementsByTagName("series"):
-        for serie in series.getElementsByTagName("serie"):
-            if (title == getValue(serie, 'title')):
+    def addTorrent(self, title, url, tracker, filename, episode, season):
+        try:
+            if(self.xmlExists() == False):
+                f = open(settings.xml_file,"w")
+                _xml = xml.dom.minidom.Document()
+    
+                series = _xml.createElement("series")
+                _xml.appendChild(series)
+    
+                _xml.writexml(f, "    ", "", "\n", "UTF-8")
+                f.close()
+    
+            self.doc = self.refreshXML()
+        except:
+            return False
+    
+        for serie in self.getElementsRecursive(True, self.doc, 'series', 'serie'):
+            if (title == self.getNodeValue(serie, 'title')):
                 # pokud neexistuje torrents
                 if len(serie.getElementsByTagName("torrents")) == 0:
                     torrents = doc.createElement("torrents")
                     serie.appendChild(torrents)
-
+    
                 torrents = serie.getElementsByTagName("torrents")[0]
- 
+     
                 input = {'title'      :title,
                          'episode'    :episode,
                          'season'     :season,
                          'url'        :url,
                          'tracker'    :tracker,
                          'filename'   :filename}
-
+    
                 if (torrentExists(input) == False):
                     # pridavam novy torrent
                     torrent = doc.createElement("torrent")
@@ -169,10 +184,11 @@ def addTorrent(title, url, tracker, filename, episode, season):
 
                     #print doc.toprettyxml('     ', '\n', 'utf-8')
                     f = open(settings.xml_file,"w")
-                    doc.writexml(f, "", "", "", "UTF-8")
+                    self.doc.writexml(f, "", "", "", "UTF-8")
                     f.close()
 
                 #at the end refresh torrents
+                self.doc = self.refreshXML()
                 getTorrents()
                 break
             else:
@@ -226,7 +242,7 @@ def getSerieNode(title):
     title = toSearch(title)
     for series in doc.getElementsByTagName("series"):
         for serie in series.getElementsByTagName("serie"):
-            if getValue(serie, 'search') == title:
+            if self.getNodeValue(serie, 'search') == title:
                 return doc,serie
 
 def getTorrentNode(filename):
@@ -245,13 +261,13 @@ def getTorrentNode(filename):
 
 def changeSerie(title, episode, season):
     doc,serie = getSerieNode(title)
-    _episode = getValue(serie, 'episode')
-    _season = getValue(serie, 'season')
+    _episode = self.getNodeValue(serie, 'episode')
+    _season = self.getNodeValue(serie, 'season')
     
     if (int(season) == int(_season) and int(episode) > int(_episode)) or int(season) > int(_season):
         #print serie.episode
-        setValue(serie, 'episode', episode)
-        setValue(serie, 'season', season)
+        self.setNodeValue(serie, 'episode', episode)
+        self.setNodeValue(serie, 'season', season)
         f = open(settings.xml_file,"w")
         doc.writexml(f, "", "", "", "UTF-8")
         f.close()
