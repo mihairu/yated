@@ -11,9 +11,9 @@ except ImportError:
     exit('Program terminated.')
 
 #import series_handle as handle
-import xml_handle as xml
+import handlers.c_sqlite as c_sqlite
 import settings as settings
-import torrent_down as torrent
+import handlers.torrent as torrent
     
 ########## SETTINGS
 # RSS feed - now can handle only show_name
@@ -59,28 +59,32 @@ def feed_parse(feed):
         try: show_episode
         except NameError: show_episode = 'n/a'
 
-        serie = xml.getSeries(show_name)
+        sqlite_h = c_sqlite.SQLiteHandler()
+        serie = sqlite_h.getSeries(show_name)
+
+        torrent_h = torrent.Torrent()
+        filename = torrent_h.fetchFilename(show_url)
 
         # search for all episodes in same or newer season
         if int(show_season) >= int(serie['season']):
             # TODO - DA SE DAT DO JEDNOHO IF
             # search for newer episodes in same season
             if int(show_season) == int(serie['season']) and int(show_episode) > int(serie['episode']) \
-            and torrent.getFilename(show_url):
-                xml.addTorrent(show_name, show_url, show_url_from, 
-                               torrent.getFilename(show_url), show_episode, show_season) 
-                
+            and filename:
+                sqlite_h.addTorrent(show_name, show_url, show_url_from, 
+                               filename, show_episode, show_season) 
             # search for all episodes in newer season
             if int(show_season) > int(serie['season']) \
-            and torrent.getFilename(show_url):
-                xml.addTorrent(show_name, show_url, show_url_from,
-                               torrent.getFilename(show_url), show_episode, show_season)
+            and filename:
+                sqlite_h.addTorrent(show_name, show_url, show_url_from,
+                               filename, show_episode, show_season)
 
 def get_feeds():
     ### init of shows
-    xml.getSeries()
+    sqlite_h = c_sqlite.SQLiteHandler()
 
     for show in settings.shows:
+        print '\t#',show['title']
         feed_parse(feed_check(show['search']))
 
     return True

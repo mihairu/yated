@@ -5,7 +5,7 @@
 # shows to search
 shows = []
 torrents = []
-xml_file = '/home/mihairu/Programs/yated-dev/series.xml'
+db_file = '/home/mihairu/Programs/yated-dev/series.db'
 
 
 """
@@ -17,4 +17,4 @@ new_episodes = []
 download_from = 'www.mininova.org'
 """
 # where to download
-download_dir = '/home/mihairu/torrents/'
+download_dir = '/home/mihairu/downloader/torrents/'
