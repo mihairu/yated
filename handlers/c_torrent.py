@@ -11,7 +11,6 @@ except ImportError:
     exit('Program terminated.')
 
 import settings as settings
-import handlers.xml_files as xml
 
 class TorrentDownload():
     def __init__(self, url):
