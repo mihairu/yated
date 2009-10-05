@@ -13,7 +13,7 @@ except ImportError:
 #import series_handle as handle
 import handlers.c_sqlite as c_sqlite
 import settings as settings
-import handlers.torrent as torrent
+import handlers.c_torrent as c_torrent
     
 ########## SETTINGS
 # RSS feed - now can handle only show_name
@@ -62,7 +62,7 @@ def feed_parse(feed):
         sqlite_h = c_sqlite.SQLiteHandler()
         serie = sqlite_h.getSeries(show_name)
 
-        torrent_h = torrent.Torrent()
+        torrent_h = c_torrent.Torrent()
         filename = torrent_h.fetchFilename(show_url)
 
         # search for all episodes in same or newer season
